@@ -163,14 +163,18 @@ class DeepSeek:
             logger.exception(f"Unknown Error:{e}")
             raise
         
-        if  isinstance(response, dict) and ("choices" in response and response["choices"]):
-            if len(response["choices"]) > 0: #检查 "choices" 是否包含有效数据
+        
+        if isinstance(response, dict) and ("choices" in response and response["choices"]):
+            if len(response["choices"]) > 0:
                 response_str = response["choices"][0]["message"]["content"]
                 return response_str
             else:
-                return "AI model response error1"
-        else: #如果上述任何检查失败（例如 response 不是字典、缺少 "choices" 键、"choices" 列表为空等）
-            return "AI model response error2"
+                return "AI model response error1: No choices found in response"
+        elif isinstance(response, str):
+            # 如果响应是字符串，直接返回
+            return response
+        else:
+            return "AI model response error2: Unexpected response type"
         
 # import asyncio
 
