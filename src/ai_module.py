@@ -164,13 +164,13 @@ class DeepSeek:
             raise
         
         if  isinstance(response, dict) and ("choices" in response and response["choices"]):
-            if len(response["choices"]) > 0:
+            if len(response["choices"]) > 0: #检查 "choices" 是否包含有效数据
                 response_str = response["choices"][0]["message"]["content"]
                 return response_str
             else:
-                return "AI model response error"
-        else:
-            return "AI model response error"
+                return "AI model response error1"
+        else: #如果上述任何检查失败（例如 response 不是字典、缺少 "choices" 键、"choices" 列表为空等）
+            return "AI model response error2"
         
 # import asyncio
 
