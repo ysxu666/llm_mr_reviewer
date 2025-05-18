@@ -1,0 +1,104 @@
+# 工作流名称
+name: Code Review
+
+# 触发条件
+on:
+  # 允许其他仓库通过工作流调用触发此工作流
+  workflow_call:  
+    inputs:
+      PULL_REQUEST_ID:  # 输入参数：PR ID
+        required: true
+        type: number
+      COMMIT_ID:  # 输入参数：提交 ID
+        required: true
+        type: string
+      SELF_HOSTED:  # 输入参数：是否使用自托管运行器
+        required: true
+        type: string
+    secrets:  # 需要的密钥
+      LLM_API_KEY:
+        required: true
+      LLM_API_URL:
+        required: true
+      THIS_GITHUB_TOKEN:
+        required: true
+      REPOSITORY_NAME:
+        required: true
+      REPOSITORY_OWNER:
+        required: true
+      PROMPT_LEVEL:
+        required: true
+  # 当 PR 创建、更新或重新打开时触发
+  pull_request:
+    types: [opened, synchronize, reopened]  
+
+# 定义 jobs
+jobs:
+  # 定义代码审查 job
+  code_review:
+    # 根据输入参数和条件选择运行器
+    runs-on: ${{ github.workflow_ref != '' && inputs.SELF_HOSTED || 'ubuntu-latest' }}
+
+    steps:
+      # 如果是工作流调用，则检出被审查的代码
+      - name: Checkout Reviewer Code
+        uses: actions/checkout@v4
+        if: ${{ github.workflow_ref != '' }}
+        with:
+          repository: ${{ secrets.REPOSITORY_OWNER }}/${{ secrets.REPOSITORY_NAME }}
+          token: ${{ secrets.THIS_GITHUB_TOKEN }}  # 需要有权限的 Token
+          ref: ${{ inputs.COMMIT_ID }}
+          path: code/${{ secrets.REPOSITORY_NAME }}
+          
+      # 检出 AI 代码审查工具的代码
+      - name: Checkout AI Code Reviewer Code
+        uses: actions/checkout@v4
+        with:
+          repository: ysxu666/llm_mr_reviewer
+          token: ${{ secrets.THIS_GITHUB_TOKEN }}  # 需要有权限的 Token
+          ref: ${{ github.workflow_ref != '' &&  'main' || github.head_ref }}
+          path: code/llm_mr_reviewer
+      
+      # 设置 Python 版本
+      - name: Set Python Version
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.7'
+
+      # 设置 Pip 缓存
+      - name: Set Pip Cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # 安装依赖
+      - name: Install Requirement
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r code/llm_mr_reviewer/requirements.txt
+
+      # 运行代码审查
+      - name: Code Review
+        env:
+            LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+            LLM_API_URL: ${{ secrets.LLM_API_URL }}
+            GITHUB_TOKEN: ${{ secrets.THIS_GITHUB_TOKEN }}
+            REPOSITORY_NAME: ${{ secrets.REPOSITORY_NAME }}
+            REPOSITORY_OWNER: ${{ secrets.REPOSITORY_OWNER }}
+            PROMPT_LEVEL : ${{ secrets.PROMPT_LEVEL }}
+        run: |
+          cd code/llm_mr_reviewer/src
+          echo "LOG_PATH=code/llm_mr_reviewer/src/app.log" >> $GITHUB_ENV
+          python ai_code_reviewer.py ${{ github.workflow_ref != '' && inputs.PULL_REQUEST_ID || github.event.pull_request.number }}
+
+      # 上传日志文件作为工作流的输出
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload log
+          path: ${{ env.LOG_PATH }}
+          working-directory: ./
+          retention-days: 1
