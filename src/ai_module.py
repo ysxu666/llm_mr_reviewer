@@ -5,7 +5,7 @@ import aiohttp
 import common_function
 from ai_code_reviewer_logger import logger
 from httpx import AsyncClient
-
+from openai import OpenAI
 
 def read_json_file(file_path : str) -> dict: 
     try:
@@ -55,6 +55,7 @@ class DeepSeek:
             raise RuntimeError("Init async client error") from e
         
         self.prompt = read_json_file("./prompt_level_configure.json")
+        
 
         logger.info("Init ai model deepseek success")
         
@@ -75,7 +76,7 @@ class DeepSeek:
         
 
     
-    async def call_deepseek_async(self, prompt: str) -> any:
+    async def call_deepseek_async2(self, prompt: str) -> any:
         # 步调用 DeepSeek API 并返回结果
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -113,6 +114,32 @@ class DeepSeek:
         finally:
             if response:
                 await response.aclose()
+    # 修改的地方：将 call_deepseek_async 方法改为使用 OpenAI 客户端
+    async def call_deepseek_async(self, prompt: str) -> any:
+        # 初始化 OpenAI 客户端
+        openai_client = OpenAI(api_key=self._api_key, base_url=self.api_url)
+
+        # 构造请求负载
+        payload = {
+            "model": "deepseek-chat",  # 修改模型名称以匹配官方示例
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant"},  # 添加系统角色的消息
+                {"role": "user", "content": prompt}  # 用户的消息
+            ],
+            "stream": False  # 添加 stream 参数
+        }
+
+        try:
+            # 使用 OpenAI 客户端发送请求
+            response = openai_client.chat.completions.create(**payload)
+            # 返回响应内容
+            return response.choices[0].message.content
+
+        except Exception as e:
+            # 捕获并记录异常
+            logger.exception(f"Error calling DeepSeek API: {e}")
+            raise
+
 
     async def call_ai_model(self, code_content):
         logger.info("Start call ai model")
@@ -144,3 +171,19 @@ class DeepSeek:
                 return "AI model response error"
         else:
             return "AI model response error"
+        
+# import asyncio
+
+# async def test_call_deepseek_async():
+#     API_URL = "https://api.deepseek.com"  # 替换为你的实际 API URL
+#     API_KEY = ""  # 替换为你的实际 API Key
+
+#     deepseek = DeepSeek(API_URL, API_KEY)
+#     TEST_PROMPT = "你是一名经验丰富的计算机工程师，请从专业的角度，对以下代码进行review，对于不完善的地方，请提出针对性的优化建议。在给出意见时请保持语言的简洁，只需对可能导致程序严重错误的地方提出修改建议，无需给出示例代码。review 时不需要吹毛求疵，如果没有更好的优化建议，建议的内容可以为空\nint main() { return 0; }"
+
+#     result = await deepseek.call_deepseek_async(TEST_PROMPT)
+#     print("Response from DeepSeek API:")
+#     print(result)
+
+# if __name__ == "__main__":
+#     asyncio.run(test_call_deepseek_async())
