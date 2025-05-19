@@ -114,8 +114,9 @@ class CppCodeAnalyzer:
         # 释放 AI 模型和 GitHub 辅助工具的资源
         await asyncio.gather(self.ai_module.close(), self.github_assistant.close())
     
+    max_ai_calls = 3  # 最大调用次数
     # 分析函数的异步方法
-    async def analyze_functions(self, node, lines, file_name):
+    async def analyze_functions(self, node, lines, file_name, ai_call_count):
         new_lines = lines  # 复制行号列表
         
         # 根据文件类型确定函数节点名称
@@ -134,7 +135,7 @@ class CppCodeAnalyzer:
             right = bisect.bisect_right(new_lines, func_end_line)
             lines_to_process = new_lines[left:right]
             
-            if lines_to_process:
+            if lines_to_process  and ai_call_count < self.max_ai_calls:
                 try:
                     # 提取函数体
                     function_body = self.extract_function_body(node)
@@ -142,6 +143,7 @@ class CppCodeAnalyzer:
                     response = await self.ai_module.call_ai_model(function_body)
                     # 将评论添加到函数变更的第一行
                     self.github_assistant.add_comment(file_name, next(iter(lines_to_process), None), response)
+                    ai_call_count += 1  # 增加调用次数
                 except Exception as e:
                     # 记录异常日志
                     logger.exception(f"AI processing failed:{e}")
@@ -152,7 +154,9 @@ class CppCodeAnalyzer:
                 
         # 递归地遍历子节点
         for child in node.children:
-            await self.analyze_functions(child, new_lines, file_name)
+            ai_call_count = await self.analyze_functions(child, new_lines, file_name, ai_call_count)
+            # await self.analyze_functions(child, new_lines, file_name)
+        return ai_call_count
     
     # 提取函数体的方法
     def extract_function_body(self, node):
@@ -202,10 +206,14 @@ class CppCodeAnalyzer:
                     # AST 遍历
                     lines = diff_file_struct.diff_position
                     lines.sort()
-                    await self.analyze_functions(
+                    # 初始化 AI 调用次数
+                    ai_call_count = 0
+                    # 分析函数并限制调用次数
+                    ai_call_count = await self.analyze_functions(
                         root_node, 
                         lines,
-                        file_name
+                        file_name,
+                        ai_call_count
                     )
                     
                 except IOError as e:

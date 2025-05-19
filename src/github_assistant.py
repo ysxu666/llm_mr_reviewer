@@ -165,3 +165,4 @@ class GithubAssistant:
                 diff_file_struct_list.append(DiffFileStruct(filename, filepath, positions)) 
 
         return diff_file_struct_list
+
