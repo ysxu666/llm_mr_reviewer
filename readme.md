@@ -6,6 +6,7 @@
 Comments需要准确地评论在对应的代码行上（跟人工提交comments一个效果）。
 Comments尽量合情合理。
 ## 目录结构
+```
 llm_mr_reviewer/
 ├── readme.md
 ├── requirements.txt
@@ -16,6 +17,7 @@ llm_mr_reviewer/
     ├── common_function.py         #校验参数是否为非空字符串，检查日志模块是否已正确初始化。
     ├── github_assistant.py        #与 GitHub API 交互，获取拉取请求（PR）的修改文件、解析差异文件的变更位置，并在 PR 中添加评论。
     └── prompt_level_configure.json
+```
 
 ## 使用说明
 1. llm_mr_reviewer项目推到github
