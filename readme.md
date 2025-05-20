@@ -46,12 +46,13 @@ jobs:
       PROMPT_LEVEL: ${{ secrets.PROMPT_LEVEL }}
 ```
 4. 在仓库的settings -> secrets and variables的repository secrets中添加以下变量：
+```
 LLM_API_KEY=<your api key>
 LLM_API_URL=https://api.deepseek.com
 PROMPT_LEVEL=0
 THIS_GITHUB_TOKEN=<your github token>
-
-5. 新建一个example.py文件，并提交
+```
+6. 新建一个example.py文件，并提交
 ```
 # 文件名: example.py
 
